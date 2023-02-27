@@ -37,7 +37,7 @@ import java.util.*;
  * @since 1.0.0
  */
 @Slf4j
-public class PulsarListenerAnnotationBeanProcessor implements BeanPostProcessor, BeanFactoryAware, SmartInitializingSingleton,InitializingBean, DisposableBean {
+public class PulsarListenerAnnotationBeanProcessor implements BeanPostProcessor, BeanFactoryAware, SmartInitializingSingleton, InitializingBean, DisposableBean {
 
     public static final String DEFAULT_PULSAR_LISTENER_CONTAINER_FACTORY_BEAN_NAME = "pulsarListenerContainerFactory";
 

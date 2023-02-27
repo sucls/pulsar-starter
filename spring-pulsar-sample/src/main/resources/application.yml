@@ -8,10 +8,10 @@ spring:
 cycads:
   pulsar:
     service-url: pulsar://localhost:6650
-    consumer:
-      schema-type: string
-      subscription-name: TEST-SUB
-    listener:
-      batch: false
+#    consumer:
+#      schema-type: string
+#      subscription-name: TEST-SUB
+#    listener:
+#      batch: false
   # 定义Topic
   listener-topics: TOPIC_TEST

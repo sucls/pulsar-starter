@@ -101,6 +101,7 @@ starter的使用示例项目
    + Import配置PulsarAnnotationDrivenConfiguration，这个主要是一些额外的配置，用来支持后面的功能
 
 ```java
+
 @Configuration
 @EnableConfigurationProperties({PulsarProperties.class})
 @Import({PulsarAnnotationDrivenConfiguration.class})
@@ -113,23 +114,23 @@ public class PulsarAutoConfiguration {
     }
 
     @Bean(destroyMethod = "close")
-    public PulsarClient pulsarClient() throws PulsarClientException {
+    public PulsarClient pulsarClient() {
         ClientBuilder clientBuilder = new ClientBuilderImpl(properties);
         return clientBuilder.build();
     }
 
     @Bean
     @ConditionalOnMissingBean(ConsumerFactory.class)
-    public ConsumerFactory pulsarConsumerFactory() throws PulsarClientException {
+    public ConsumerFactory pulsarConsumerFactory() {
         return new DefaultPulsarConsumerFactory(pulsarClient(), properties.getConsumer().buildProperties());
     }
 
     @Bean
     @ConditionalOnMissingBean(ProducerFactory.class)
-    public ProducerFactory pulsarProducerFactory() throws PulsarClientException {
+    public ProducerFactory pulsarProducerFactory() {
         return new DefaultPulsarProducerFactory(pulsarClient(), properties.getProducer().buildProperties());
     }
-    
+
 }
 ```
 
@@ -186,13 +187,13 @@ public @interface PulsarListener {
 
     /**
      *
-     * @return
+     * @return TOPIC 支持SPEL
      */
     String[] topics() default {};
 
     /**
      *
-     * @return
+     * @return TAGS 支持SPEL
      */
     String[] tags() default {};
 }
@@ -203,11 +204,14 @@ public @interface PulsarHandler {
 
 }
 ```
+4. 注解@PulsarListener的处理流程比较复杂，这里用一张图描述，或者可以通过下面github的源代码查看具体实现
 
-
+![flow](docs/images/starter/flow.png)
 
 
 * **spring-pulsar-sample**
+
+按照下面的流程，你会发现通过简单的几行代码就能够实现消息的生产与消费，并集成到项目中去。
 
 1. 简单写一个SpringBoot项目，并添加pulsar-spring-boot-starter
 ```xml
@@ -226,15 +230,83 @@ public @interface PulsarHandler {
 ```
 2. 添加配置
 ```yaml
-
+cycads:
+  pulsar:
+    service-url: pulsar://localhost:6650
+  listener-topics: TOPIC_TEST
 ```
-3.
+3. 编写对应消费代码
+```java
+@Slf4j
+@Component
+@PulsarListener(topics = "#{'${cycads.listener-topics}'.split(',')}")
+public class PulsarDemoListener {
 
-### 示例
+    @PulsarHandler
+    public void onConsumer(Message message){
+        log.info(">>> 接收到消息：{}", message.getPayload());
+    }
 
-> [github](https://github.com/sucls/pulsar-starter.git)
+}
+```
+
+4. 向Pulsar Broker发送消息进行测试
+
+```java
+@Slf4j
+@RunWith(SpringRunner.class)
+@ContextConfiguration(classes = {ContextConfig.class})
+@Import({PulsarAutoConfiguration.class})
+public class ProducerTests {
+
+    @Autowired
+    private ProducerFactory producerFactory;
+
+    @Test
+    public void sendMessage() {
+        Producer producer = producerFactory.createProducer("TOPIC_TEST");
+        MessageId messageId = producer.send("this is a test message");
+        log.info(">>>>>>> 消息发送完成：{}", messageId);
+    }
+
+    @Configuration
+    @PropertySource(value = "classpath:application-test.properties")
+    static class ContextConfig {
+        //
+    }
+}
+```
+5. 控制台可以看到这样的结果
+```
+2023-02-26 19:57:15.572  INFO 26520 --- [pulsar-01] c.s.p.s.listener.PulsarDemoListener : >>> 接收到消息：GenericMessage [payload=this is a test message, headers={id=f861488c-2afb-b2e7-21a1-f15e9759eec5, timestamp=1677412635571}]
+```
+
+### 知识点
+
++ Pulsar Client
+
+基于pulsar-client提供的ConfigurationData扩展Properties；
+了解Pulsar Client如何连接Broker并进行消息消费，包括同步消费、异步消费等等
+
++ spring.factories
+
+实现starter自动配置的关键，基于SPI完成配置的自动加载
+
++ Spring Bean生命周期
+
+通过Bean生命周期相关扩展实现注解的解析与容器的启动，比如BeanPostProcessor, BeanFactoryAware, SmartInitializingSingleton, InitializingBean, DisposableBean等
+
++ Spring Messaging
+
+基于回调与MethodHandler实现消息体的封装、参数解析以及方法调用；
+
+### 源码示例
+
+> [https://github.com/sucls/pulsar-starter.git](https://github.com/sucls/pulsar-starter.git)
 
 ### 结束语
     
+如果你看过spring-kafka的源代码，那么你会发现所有代码基本都是仿造其实现。一方面能够阅读kafka client在spring具体如何实现；同时通过编写自己的spring starter模块，学习
+整个starter的实现过程。
 
 ### 参考
